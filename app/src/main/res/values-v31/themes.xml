@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.InzpireCustomer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/inzpire_navy_deep</item>
+        <item name="android:statusBarColor">@color/inzpire_navy_deep</item>
+        <item name="android:navigationBarColor">@color/inzpire_navy_deep</item>
+        <item name="android:windowSplashScreenBackground">@color/inzpire_navy_deep</item>
+        <item name="android:windowSplashScreenIconBackgroundColor">@color/inzpire_navy_deep</item>
+    </style>
+</resources>

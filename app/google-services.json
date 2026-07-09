@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "996239676752",
+    "project_id": "inzpire-66bd3",
+    "storage_bucket": "inzpire-66bd3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:996239676752:android:be7735cdfb6d6c929dc855",
+        "android_client_info": {
+          "package_name": "com.inzpire.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqD7U-wU2XnwTLNzuJapb8sxW7zomDXvI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,193 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- inzpire splash - petal-by-petal reveal, then i + dot -->
+<animated-vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:drawable="@drawable/inzpire_splash_logo">
+
+    <target android:name="w0">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="0" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w1">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="45" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w2">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="90" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w3">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="135" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w4">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="180" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w5">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="225" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w6">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="270" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w7">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="315" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w8">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="360" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w9">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="405" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w10">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="450" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w11">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="495" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w12">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="540" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w13">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="585" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w14">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="630" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w15">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="675" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w16">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="720" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w17">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="765" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w18">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="810" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+    <target android:name="w19">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="855" android:duration="220"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+
+    <target android:name="iMark">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="strokeAlpha"
+                android:startOffset="376" android:duration="260"
+                android:valueFrom="0" android:valueTo="1"
+                android:interpolator="@android:interpolator/decelerate_quad"/>
+        </aapt:attr>
+    </target>
+
+    <target android:name="dotMark">
+        <aapt:attr name="android:animation">
+            <objectAnimator android:propertyName="fillAlpha"
+                android:startOffset="1075" android:duration="180"
+                android:valueFrom="0" android:valueTo="1"/>
+        </aapt:attr>
+    </target>
+
+    <target android:name="dotGroup">
+        <aapt:attr name="android:animation">
+            <set>
+                <objectAnimator android:propertyName="scaleX" android:startOffset="1075" android:duration="360" android:valueFrom="0.3" android:valueTo="1" android:interpolator="@android:interpolator/overshoot"/>
+                <objectAnimator android:propertyName="scaleY" android:startOffset="1075" android:duration="360" android:valueFrom="0.3" android:valueTo="1" android:interpolator="@android:interpolator/overshoot"/>
+            </set>
+        </aapt:attr>
+    </target>
+</animated-vector>
