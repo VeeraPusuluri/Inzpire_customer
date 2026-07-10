@@ -67,6 +67,7 @@ object CockpitData {
         val make: String,
         val swatchUrl: String,
         val status: MaterialStatus,
+        val mediaUrls: List<String> = emptyList(),
     )
 
     data class Approval(

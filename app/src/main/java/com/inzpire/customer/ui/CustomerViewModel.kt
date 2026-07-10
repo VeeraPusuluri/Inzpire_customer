@@ -9,11 +9,16 @@ import com.inzpire.customer.data.Cockpit
 import com.inzpire.customer.data.CockpitData
 import com.inzpire.customer.data.CockpitRepository
 import com.inzpire.customer.data.ProfileRepository
+import com.inzpire.customer.data.model.ChangeRequestInsert
 import com.inzpire.customer.data.model.Profile
 import com.inzpire.customer.data.model.ProfilePatch
+import com.inzpire.customer.notifications.PushRegistrar
 import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -74,17 +79,29 @@ class CustomerViewModel : ViewModel() {
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
+    /** One-shot user-feedback messages (shown as a toast by the UI). */
+    private val _toasts = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val toasts: SharedFlow<String> = _toasts.asSharedFlow()
+
+    private fun toast(message: String) {
+        _toasts.tryEmit(message)
+    }
+
     val currentUserId: String? get() = authRepository.currentUserId
 
     init {
         viewModelScope.launch {
             authRepository.awaitInitialization()
-            if (authRepository.currentUserId != null) refreshAll()
+            authRepository.currentUserId?.let {
+                refreshAll()
+                PushRegistrar.register(it)
+            }
         }
     }
 
     fun onSignedIn() {
         viewModelScope.launch { refreshAll() }
+        currentUserId?.let { PushRegistrar.register(it) }
     }
 
     fun clearLocalData() {
@@ -132,14 +149,83 @@ class CustomerViewModel : ViewModel() {
 
     // ---- cockpit write actions (optimistic; persisted when live) ----
 
-    fun approveDesign(id: String) = mutateDesign(id, CockpitData.ReviewStatus.APPROVED) {
-        cockpitRepository.approveDesign(id)
+    fun approveDesign(id: String) {
+        toast("Design approved")
+        mutateDesign(id, CockpitData.ReviewStatus.APPROVED) {
+            cockpitRepository.approveDesign(id)
+        }
     }
 
-    fun requestDesignChanges(id: String, comment: String? = null) =
-        mutateDesign(id, CockpitData.ReviewStatus.CHANGES) {
-            cockpitRepository.requestDesignChanges(id, comment)
+    /**
+     * Customer asks for changes on a design. Optimistically flags the card, then
+     * (when live) flips the moodboard to "revision" and logs a change_request so
+     * the request reaches the admin's Requests tab + notification bell.
+     */
+    fun requestDesignChanges(id: String, comment: String? = null) {
+        toast("Change request sent to your designer")
+        _cockpit.value = _cockpit.value.copy(
+            designs = _cockpit.value.designs.map {
+                if (it.id == id) it.copy(status = CockpitData.ReviewStatus.CHANGES) else it
+            },
+        )
+        if (!_live.value) return
+        val design = _cockpit.value.designs.firstOrNull { it.id == id }
+        val projectId = _cockpit.value.projectId
+        val uid = currentUserId ?: return
+        val note = comment?.trim()?.ifBlank { null }
+        viewModelScope.launch {
+            // Independent so a failed moodboard update never drops the logged request.
+            runCatching { cockpitRepository.requestDesignChanges(id, note) }
+            runCatching {
+                cockpitRepository.submitChangeRequest(
+                    ChangeRequestInsert(
+                        projectId = projectId,
+                        customerId = uid,
+                        kind = "design",
+                        refId = id,
+                        refTitle = design?.let { "${it.room} · ${it.title}" },
+                        room = design?.room,
+                        note = note ?: "Please revise this design.",
+                    ),
+                )
+            }
         }
+    }
+
+    /** Customer accepts a material → optimistic "Locked" (final sign-off), persisted when live. */
+    fun acceptMaterial(id: String) {
+        toast("Material accepted")
+        _cockpit.value = _cockpit.value.copy(
+            materials = _cockpit.value.materials.map {
+                if (it.id == id) it.copy(status = CockpitData.MaterialStatus.LOCKED) else it
+            },
+        )
+        if (_live.value) viewModelScope.launch { runCatching { cockpitRepository.acceptMaterial(id) } }
+    }
+
+    /** Customer asks for a change on a material selection → logged to change_requests for admin. */
+    fun requestMaterialChange(id: String, note: String) {
+        toast("Change request sent to your designer")
+        if (!_live.value) return
+        val material = _cockpit.value.materials.firstOrNull { it.id == id }
+        val projectId = _cockpit.value.projectId
+        val uid = currentUserId ?: return
+        viewModelScope.launch {
+            runCatching {
+                cockpitRepository.submitChangeRequest(
+                    ChangeRequestInsert(
+                        projectId = projectId,
+                        customerId = uid,
+                        kind = "material",
+                        refId = id,
+                        refTitle = material?.let { "${it.category} · ${it.name}" },
+                        room = material?.room,
+                        note = note.trim(),
+                    ),
+                )
+            }
+        }
+    }
 
     private fun mutateDesign(id: String, status: CockpitData.ReviewStatus, persist: suspend () -> Unit) {
         _cockpit.value = _cockpit.value.copy(
@@ -149,6 +235,7 @@ class CustomerViewModel : ViewModel() {
     }
 
     fun approveApproval(id: String) {
+        toast("Approved")
         val approver = _profile.value?.name ?: "You"
         _cockpit.value = _cockpit.value.copy(
             approvals = _cockpit.value.approvals.map {
@@ -160,6 +247,7 @@ class CustomerViewModel : ViewModel() {
     }
 
     fun rejectApproval(id: String) {
+        toast("Changes requested")
         _cockpit.value = _cockpit.value.copy(
             approvals = _cockpit.value.approvals.map {
                 if (it.id == id) it.copy(status = CockpitData.ReviewStatus.CHANGES) else it
@@ -169,6 +257,7 @@ class CustomerViewModel : ViewModel() {
     }
 
     fun payMilestone(id: String) {
+        toast("Payment recorded")
         _cockpit.value = _cockpit.value.copy(
             payments = _cockpit.value.payments.map {
                 if (it.id == id) it.copy(status = CockpitData.PaymentStatus.PAID, paidAt = LocalDate.now()) else it
@@ -251,6 +340,9 @@ class CustomerViewModel : ViewModel() {
 
     fun signOut() {
         viewModelScope.launch {
+            // Best-effort: drop this device's token while still authed (RLS), then
+            // invalidate it locally so any in-flight push is pruned server-side.
+            runCatching { PushRegistrar.unregister() }
             authRepository.signOut()
             clearLocalData()
         }

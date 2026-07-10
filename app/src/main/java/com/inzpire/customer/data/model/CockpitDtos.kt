@@ -60,6 +60,7 @@ data class SelectionDto(
     val status: String = "suggested",
     @SerialName("room_id") val roomId: String,
     @SerialName("product_id") val productId: String? = null,
+    @SerialName("media_urls") val mediaUrls: List<String> = emptyList(),
 )
 
 @Serializable
@@ -157,6 +158,11 @@ data class PaymentPatch(
 )
 
 @Serializable
+data class SelectionPatch(
+    val status: String,
+)
+
+@Serializable
 data class MessageInsert(
     @SerialName("project_id") val projectId: String,
     @SerialName("sender_id") val senderId: String,
@@ -172,4 +178,16 @@ data class LeadInsert(
     val address: String? = null,
     val budget: Double? = null,
     val source: String = "app",
+)
+
+/** A customer-raised change request on a material or design (see change_requests). */
+@Serializable
+data class ChangeRequestInsert(
+    @SerialName("project_id") val projectId: String,
+    @SerialName("customer_id") val customerId: String,
+    val kind: String, // "material" | "design"
+    @SerialName("ref_id") val refId: String? = null,
+    @SerialName("ref_title") val refTitle: String? = null,
+    val room: String? = null,
+    val note: String,
 )

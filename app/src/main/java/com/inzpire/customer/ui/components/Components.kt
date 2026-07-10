@@ -7,12 +7,17 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,12 +30,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import com.inzpire.customer.ui.theme.Border
+import coil.compose.SubcomposeAsyncImage
 import com.inzpire.customer.ui.theme.Foreground
 import com.inzpire.customer.ui.theme.MutedForeground
 import com.inzpire.customer.ui.theme.Navy
 import com.inzpire.customer.ui.theme.NavyDeep
+import com.inzpire.customer.ui.theme.SkySoft
 
 /** Remote image (Unsplash seed URLs) with a neutral placeholder background while loading. */
 @Composable
@@ -40,13 +45,29 @@ fun RemoteImage(
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
 ) {
-    // The background shows as a neutral placeholder until Coil paints the loaded image over it.
-    AsyncImage(
+    // While loading — or when the URL is missing/broken — show a branded image
+    // placeholder instead of an empty box, so material & design cards always read
+    // as image tiles.
+    SubcomposeAsyncImage(
         model = url,
         contentDescription = contentDescription,
         contentScale = contentScale,
-        modifier = modifier.background(Border.copy(alpha = 0.4f)),
+        modifier = modifier.background(SkySoft),
+        loading = { ImagePlaceholder() },
+        error = { ImagePlaceholder() },
     )
+}
+
+@Composable
+private fun ImagePlaceholder() {
+    Box(Modifier.fillMaxSize().background(SkySoft), contentAlignment = Alignment.Center) {
+        Icon(
+            Icons.Outlined.Image,
+            contentDescription = null,
+            tint = Navy.copy(alpha = 0.30f),
+            modifier = Modifier.size(30.dp),
+        )
+    }
 }
 
 /**

@@ -8,6 +8,7 @@ import com.inzpire.customer.data.CockpitData.PaymentStatus
 import com.inzpire.customer.data.CockpitData.ReviewStatus
 import com.inzpire.customer.data.model.ApprovalDto
 import com.inzpire.customer.data.model.ApprovalPatch
+import com.inzpire.customer.data.model.ChangeRequestInsert
 import com.inzpire.customer.data.model.DocumentDto
 import com.inzpire.customer.data.model.MoodboardDto
 import com.inzpire.customer.data.model.MoodboardPatch
@@ -18,6 +19,7 @@ import com.inzpire.customer.data.model.ProfileLiteDto
 import com.inzpire.customer.data.model.ProjectDto
 import com.inzpire.customer.data.model.RoomDto
 import com.inzpire.customer.data.model.SelectionDto
+import com.inzpire.customer.data.model.SelectionPatch
 import com.inzpire.customer.data.model.SiteUpdateDto
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Columns
@@ -79,7 +81,11 @@ class CockpitRepository(
             val teamJob = async { loadTeam(projectDto) }
             val designsJob = async {
                 client.postgrest["moodboards"].select {
-                    filter { eq("project_id", pid) }
+                    // Only show designs the admin has shared — drafts stay internal.
+                    filter {
+                        eq("project_id", pid)
+                        neq("status", "draft")
+                    }
                     order("created_at", Order.ASCENDING)
                 }.decodeList<MoodboardDto>()
             }
@@ -158,7 +164,7 @@ class CockpitRepository(
         val roomName = rooms.associate { it.id to it.name }
 
         val selections = client.postgrest["selections"].select(
-            columns = Columns.list("id", "category", "make", "status", "room_id", "product_id"),
+            columns = Columns.list("id", "category", "make", "status", "room_id", "product_id", "media_urls"),
         ) {
             filter { isIn("room_id", rooms.map { it.id }) }
         }.decodeList<SelectionDto>()
@@ -173,18 +179,25 @@ class CockpitRepository(
 
         return selections.map { s ->
             val prod = s.productId?.let { productById[it] }
+            // Images the admin attached to the selection come first, then the
+            // catalog product image — the customer can browse all of them.
+            val gallery = (s.mediaUrls + listOfNotNull(prod?.imageUrl))
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinct()
             CockpitData.Material(
                 id = s.id,
                 room = roomName[s.roomId] ?: "Room",
                 category = s.category ?: prod?.category ?: "Material",
                 name = prod?.description ?: s.category ?: "Selection",
                 make = s.make ?: prod?.makeNotes ?: "",
-                swatchUrl = prod?.imageUrl ?: "",
+                swatchUrl = gallery.firstOrNull() ?: "",
                 status = when (s.status) {
                     "locked" -> MaterialStatus.LOCKED
                     "selected" -> MaterialStatus.SELECTED
                     else -> MaterialStatus.SUGGESTED
                 },
+                mediaUrls = gallery,
             )
         }
     }
@@ -199,6 +212,16 @@ class CockpitRepository(
     suspend fun requestDesignChanges(moodboardId: String, comment: String?) =
         client.postgrest["moodboards"].update(MoodboardPatch(status = "revision", comment = comment)) {
             filter { eq("id", moodboardId) }
+        }
+
+    /** Records a customer change/modification request; surfaces to admin (change_requests). */
+    suspend fun submitChangeRequest(req: ChangeRequestInsert) =
+        client.postgrest["change_requests"].insert(req)
+
+    /** Customer accepts a material → lock the selection as their final sign-off. */
+    suspend fun acceptMaterial(selectionId: String) =
+        client.postgrest["selections"].update(SelectionPatch(status = "locked")) {
+            filter { eq("id", selectionId) }
         }
 
     suspend fun approveApproval(id: String, approverId: String) =

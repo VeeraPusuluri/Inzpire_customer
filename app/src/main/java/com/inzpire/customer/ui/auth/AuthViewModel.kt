@@ -173,7 +173,33 @@ class AuthViewModel : ViewModel() {
                         }
                     }
                 }
-                .onFailure { errorMessage = it.message ?: "Something went wrong. Please try again." }
+                .onFailure { errorMessage = friendlyAuthError(it) }
+        }
+    }
+
+    /**
+     * Turns a raw sign-in / sign-up failure (which for Supabase can be a long, technical string)
+     * into a single friendly line for the error banner.
+     */
+    private fun friendlyAuthError(throwable: Throwable): String {
+        val raw = (throwable.message ?: "").lowercase()
+        return when {
+            "invalid login credentials" in raw || "invalid_credentials" in raw ->
+                "Incorrect email or password."
+            "email not confirmed" in raw || "email_not_confirmed" in raw ->
+                "Please confirm your email before signing in."
+            "user already registered" in raw || "already registered" in raw || "user_already_exists" in raw ->
+                "An account with this email already exists."
+            "weak password" in raw || "weak_password" in raw ->
+                "Please choose a stronger password."
+            "over_email_send_rate_limit" in raw || "rate limit" in raw || "too many" in raw ->
+                "Too many attempts. Please wait a moment and try again."
+            "unknownhost" in raw || "unable to resolve host" in raw ||
+                "timeout" in raw || "timed out" in raw || "failed to connect" in raw ||
+                "network" in raw || "connectexception" in raw ->
+                "Can't connect. Check your internet and try again."
+            else -> if (mode == AuthMode.SIGN_UP) "Sign up failed. Please try again."
+                    else "Sign in failed. Please try again."
         }
     }
 

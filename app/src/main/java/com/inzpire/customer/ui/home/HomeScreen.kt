@@ -53,6 +53,7 @@ import com.inzpire.customer.ui.components.ProgressBar
 import com.inzpire.customer.ui.components.RemoteImage
 import com.inzpire.customer.ui.components.SectionHeader
 import com.inzpire.customer.ui.components.SurfaceCard
+import com.inzpire.customer.ui.notifications.NotificationBell
 import com.inzpire.customer.ui.theme.Background
 import com.inzpire.customer.ui.theme.Border
 import com.inzpire.customer.ui.theme.Destructive
@@ -98,9 +99,12 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         // Greeting
-        Column {
-            Text("Hi $firstName", color = MutedForeground, fontSize = 13.sp)
-            Text("Your project, all in one place", color = Navy, fontSize = 24.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Text("Hi $firstName", color = MutedForeground, fontSize = 13.sp)
+                Text("Your project, all in one place", color = Navy, fontSize = 24.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
+            }
+            NotificationBell()
         }
 
         // Project header card

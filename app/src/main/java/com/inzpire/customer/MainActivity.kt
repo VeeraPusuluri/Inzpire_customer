@@ -1,9 +1,14 @@
 package com.inzpire.customer
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -15,9 +20,14 @@ import com.inzpire.customer.ui.navigation.CustomerApp
 import com.inzpire.customer.ui.theme.InzpireCustomerTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val requestNotificationPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* result ignored */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+        maybeRequestNotificationPermission()
         // Hold the splash on screen so the ~1.4s petal-reveal animation plays fully
         // instead of being cut off the moment the first app frame is drawn.
         var keepSplash = true
@@ -32,5 +42,13 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** Android 13+ requires an explicit runtime grant to post notifications. */
+    private fun maybeRequestNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        if (!granted) requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 }

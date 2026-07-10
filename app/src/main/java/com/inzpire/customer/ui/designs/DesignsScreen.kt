@@ -1,6 +1,8 @@
 package com.inzpire.customer.ui.designs
 
+import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,17 +19,26 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,8 +58,12 @@ import com.inzpire.customer.ui.theme.Warning
 fun DesignsScreen(
     designs: List<CockpitData.Design>,
     onApprove: (String) -> Unit,
-    onRequestChanges: (String) -> Unit,
+    onRequestChanges: (id: String, note: String) -> Unit,
 ) {
+    // Card tapped for its detail sheet, and the design a change request is being drafted for.
+    var detail by remember { mutableStateOf<CockpitData.Design?>(null) }
+    var requestFor by remember { mutableStateOf<CockpitData.Design?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -59,7 +74,7 @@ fun DesignsScreen(
     ) {
         Column {
             Text("Designs", color = Navy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text("Moodboards, 2D layouts and 3D renders by room.", color = MutedForeground, fontSize = 13.sp)
+            Text("Moodboards, 2D layouts and 3D renders by room. Tap a card to view it full size.", color = MutedForeground, fontSize = 13.sp)
         }
 
         if (designs.isEmpty()) {
@@ -67,7 +82,7 @@ fun DesignsScreen(
         }
 
         designs.forEach { d ->
-            SurfaceCard(Modifier.fillMaxWidth()) {
+            SurfaceCard(Modifier.fillMaxWidth(), onClick = { detail = d }) {
                 Column {
                     Box {
                         RemoteImage(d.imageUrl, d.title, Modifier.fillMaxWidth().height(190.dp), ContentScale.Crop)
@@ -94,9 +109,9 @@ fun DesignsScreen(
                                     modifier = Modifier.weight(1f),
                                     colors = ButtonDefaults.buttonColors(containerColor = Success, contentColor = Color.White),
                                 ) { Text("Approve", fontSize = 14.sp) }
-                                OutlinedButton(onClick = { onRequestChanges(d.id) }, modifier = Modifier.weight(1f)) {
+                                OutlinedButton(onClick = { requestFor = d }, modifier = Modifier.weight(1f)) {
                                     Icon(Icons.Filled.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Text(" Comment", fontSize = 14.sp)
+                                    Text(" Request change", fontSize = 13.sp)
                                 }
                             }
                         }
@@ -105,6 +120,124 @@ fun DesignsScreen(
             }
         }
     }
+
+    detail?.let { d ->
+        DesignDetailDialog(
+            design = d,
+            onDismiss = { detail = null },
+            onApprove = {
+                onApprove(d.id)
+                detail = null
+            },
+            onRequestChanges = {
+                detail = null
+                requestFor = d
+            },
+        )
+    }
+
+    requestFor?.let { design ->
+        RequestChangeDialog(
+            design = design,
+            onDismiss = { requestFor = null },
+            onSubmit = { note ->
+                onRequestChanges(design.id, note)
+                requestFor = null
+            },
+        )
+    }
+}
+
+@Composable
+private fun DesignDetailDialog(
+    design: CockpitData.Design,
+    onDismiss: () -> Unit,
+    onApprove: () -> Unit,
+    onRequestChanges: () -> Unit,
+) {
+    val uriHandler = LocalUriHandler.current
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close", color = MutedForeground) }
+        },
+        title = { Text(design.title, color = Navy, fontWeight = FontWeight.SemiBold) },
+        text = {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (design.imageUrl.isNotBlank()) {
+                    RemoteImage(
+                        design.imageUrl,
+                        design.title,
+                        Modifier
+                            .fillMaxWidth()
+                            .height(210.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { uriHandler.openUri(design.imageUrl) },
+                        ContentScale.Crop,
+                    )
+                }
+                Text("${design.room.uppercase()} · ${design.type.label} · ${design.version}", color = MutedForeground, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                ReviewStatusRow(design.status)
+
+                if (design.status == ReviewStatus.PENDING) {
+                    Button(
+                        onClick = onApprove,
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Success, contentColor = Color.White),
+                    ) { Text("Approve", fontSize = 14.sp) }
+                    OutlinedButton(onClick = onRequestChanges, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.Filled.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Text(" Request a change", fontSize = 14.sp)
+                    }
+                }
+            }
+        },
+        containerColor = Color.White,
+    )
+}
+
+@Composable
+private fun RequestChangeDialog(
+    design: CockpitData.Design,
+    onDismiss: () -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    var note by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = {
+                if (note.trim().length < 5) {
+                    Toast.makeText(context, "Add a short note about the change you'd like.", Toast.LENGTH_SHORT).show()
+                    return@TextButton
+                }
+                onSubmit(note.trim())
+            }) { Text("Send request", color = Navy, fontWeight = FontWeight.SemiBold) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = MutedForeground) }
+        },
+        title = { Text("Request a change", color = Navy, fontWeight = FontWeight.SemiBold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("${design.room} · ${design.title}", color = MutedForeground, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    placeholder = { Text("Tell your designer what to change — layout, colours, materials, etc.") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                )
+            }
+        },
+        containerColor = Color.White,
+    )
 }
 
 @Composable

@@ -1,10 +1,12 @@
 package com.inzpire.customer.ui.navigation
 
+import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -49,6 +51,14 @@ private fun AuthenticatedApp(customerViewModel: CustomerViewModel) {
     val messages by customerViewModel.messages.collectAsState()
     val live by customerViewModel.live.collectAsState()
 
+    // Surface one-shot feedback (approve / accept / request change / pay …) as a toast.
+    val context = LocalContext.current
+    LaunchedEffect(Unit) {
+        customerViewModel.toasts.collect { msg ->
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        }
+    }
+
     CustomerScaffold(
         currentRoute = currentRoute,
         profile = profile,
@@ -78,10 +88,16 @@ private fun AuthenticatedApp(customerViewModel: CustomerViewModel) {
                 DesignsScreen(
                     designs = cockpit.designs,
                     onApprove = { customerViewModel.approveDesign(it) },
-                    onRequestChanges = { customerViewModel.requestDesignChanges(it) },
+                    onRequestChanges = { id, note -> customerViewModel.requestDesignChanges(id, note) },
                 )
             }
-            composable(CustomerDestinations.MATERIALS) { MaterialsScreen(materials = cockpit.materials) }
+            composable(CustomerDestinations.MATERIALS) {
+                MaterialsScreen(
+                    materials = cockpit.materials,
+                    onAccept = { customerViewModel.acceptMaterial(it) },
+                    onRequestChange = { id, note -> customerViewModel.requestMaterialChange(id, note) },
+                )
+            }
             composable(CustomerDestinations.PAYMENTS) {
                 PaymentsScreen(
                     project = cockpit.project,

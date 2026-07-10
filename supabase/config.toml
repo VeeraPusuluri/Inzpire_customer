@@ -1,0 +1,7 @@
+project_id = "drlggmunipoxxxoeqkje"
+
+# send-push is called machine-to-machine by the notifications trigger (pg_net),
+# not by a logged-in user, so it doesn't verify a Supabase JWT. It authenticates
+# the caller with the x-dispatch-secret header instead (PUSH_DISPATCH_SECRET).
+[functions.send-push]
+verify_jwt = false
