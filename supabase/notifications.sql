@@ -17,6 +17,7 @@
 --        · referral_events approved/go_live   → influencer        [push]
 --        · team_assignments INSERT            → customer          [push]
 --        · site_updates INSERT (customer)     → customer          [push]
+--        · moodboards → 'sent' (design)       → customer          [push]
 --        · messages INSERT                    → other participants[push]
 --        · approvals INSERT                   → customer          [push]
 --        · payments INSERT                    → customer          [push]
@@ -50,6 +51,12 @@ grant update on public.notifications to authenticated;
 drop policy if exists "notifications own update" on public.notifications;
 create policy "notifications own update" on public.notifications
   for update to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Let users clear (delete) their own notifications from every client.
+grant delete on public.notifications to authenticated;
+drop policy if exists "notifications own delete" on public.notifications;
+create policy "notifications own delete" on public.notifications
+  for delete to authenticated using (user_id = auth.uid());
 
 -- ---------------------------------------------------------------------------
 -- 2. device_tokens — one row per (user, FCM token)
@@ -277,6 +284,45 @@ end $$;
 drop trigger if exists trg_notify_site_update on public.site_updates;
 create trigger trg_notify_site_update after insert on public.site_updates
   for each row execute function public.tg_notify_site_update();
+
+-- (4b) Design shared -> customer (push). A moodboard / 2D layout / 3D / render
+--      becomes visible to the customer when the admin "sends" it: status -> 'sent'.
+--      Fires whether the row is inserted straight as 'sent' or moved to 'sent'
+--      from 'draft'/'revision' (a re-send after requested changes re-notifies).
+--      Guard on the status transition so editing an already-sent design is silent.
+create or replace function public.tg_notify_moodboard_sent()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare cust uuid; kind text;
+begin
+  if new.status = 'sent' and (tg_op = 'INSERT' or old.status is distinct from new.status) then
+    select customer_id into cust from public.projects where id = new.project_id;
+    if cust is not null then
+      kind := case new.type::text
+                when 'two_d'   then '2D layout'
+                when 'three_d' then '3D design'
+                when 'render'  then 'render'
+                else 'design'
+              end;
+      perform public.notify_users(
+        array[cust],
+        'design',
+        'New ' || kind || ' ready for review',
+        'Your designer shared "' || coalesce(nullif(new.title, ''), 'a new design') || '"'
+          || case when coalesce(new.room, '') <> '' then ' for ' || new.room else '' end
+          || '. Tap to review and approve.',
+        '/designs',
+        jsonb_build_object('project_id', new.project_id, 'moodboard_id', new.id, 'moodboard_type', new.type::text),
+        'push'
+      );
+    end if;
+  end if;
+  return new;
+exception when others then
+  return new;  -- never let a notification side-effect roll back the primary write
+end $$;
+drop trigger if exists trg_notify_moodboard_sent on public.moodboards;
+create trigger trg_notify_moodboard_sent after insert or update on public.moodboards
+  for each row execute function public.tg_notify_moodboard_sent();
 
 -- (5) New message -> the other project participants (push), never the sender.
 create or replace function public.tg_notify_message()

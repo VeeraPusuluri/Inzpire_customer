@@ -29,4 +29,18 @@ class NotificationsRepository(
             }
         }
     }
+
+    /** Permanently removes a single notification from the DB. */
+    suspend fun delete(id: String) {
+        client.postgrest["notifications"].delete {
+            filter { eq("id", id) }
+        }
+    }
+
+    /** Permanently removes all of the user's notifications from the DB. */
+    suspend fun deleteAll(userId: String) {
+        client.postgrest["notifications"].delete {
+            filter { eq("user_id", userId) }
+        }
+    }
 }

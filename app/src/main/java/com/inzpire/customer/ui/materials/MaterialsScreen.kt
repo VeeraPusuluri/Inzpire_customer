@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inzpire.customer.data.CockpitData
 import com.inzpire.customer.data.CockpitData.MaterialStatus
+import com.inzpire.customer.data.FallbackImages
 import com.inzpire.customer.ui.components.EmptyState
 import com.inzpire.customer.ui.components.RemoteImage
 import com.inzpire.customer.ui.components.SurfaceCard
@@ -121,13 +122,12 @@ fun MaterialsScreen(
 private fun MaterialCard(m: CockpitData.Material, modifier: Modifier = Modifier, onClick: () -> Unit) {
     SurfaceCard(modifier, onClick = onClick) {
         Column {
-            if (m.swatchUrl.isNotBlank()) {
-                RemoteImage(m.swatchUrl, m.name, Modifier.fillMaxWidth().aspectRatio(1f), ContentScale.Crop)
-            } else {
-                Box(Modifier.fillMaxWidth().aspectRatio(1f).background(SkySoft), contentAlignment = Alignment.Center) {
-                    Text(m.category.uppercase(), color = Navy, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                }
-            }
+            RemoteImage(
+                m.swatchUrl.ifBlank { FallbackImages.forMaterial(m.id) },
+                m.name,
+                Modifier.fillMaxWidth().aspectRatio(1f),
+                ContentScale.Crop,
+            )
             Column(Modifier.padding(10.dp)) {
                 Text(m.category.uppercase(), color = MutedForeground, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 Text(m.name, color = Foreground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
@@ -183,19 +183,20 @@ private fun MaterialDetailDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                // Primary image — tap to open full size in the browser.
-                images.firstOrNull()?.let { hero ->
-                    RemoteImage(
-                        hero,
-                        material.name,
-                        Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1.5f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable { uriHandler.openUri(hero) },
-                        ContentScale.Crop,
-                    )
-                }
+                // Primary image — tap to open full size in the browser. Falls back to the
+                // card's swatch (or a curated stock image) when the admin attached no photos.
+                val hero = images.firstOrNull()
+                    ?: material.swatchUrl.ifBlank { FallbackImages.forMaterial(material.id) }
+                RemoteImage(
+                    hero,
+                    material.name,
+                    Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1.5f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { uriHandler.openUri(hero) },
+                    ContentScale.Crop,
+                )
 
                 // Every image/file the admin attached — tap any to view.
                 if (material.mediaUrls.size > 1 || files.isNotEmpty()) {

@@ -37,4 +37,19 @@ class NotificationsViewModel : ViewModel() {
         _items.value = _items.value.map { it.copy(isRead = true) }
         viewModelScope.launch { runCatching { repo.markAllRead(uid) } }
     }
+
+    fun delete(id: String) {
+        _items.value = _items.value.filterNot { it.id == id }
+        viewModelScope.launch {
+            runCatching { repo.delete(id) }.onFailure { refresh() }
+        }
+    }
+
+    fun clearAll() {
+        val uid = auth.currentUserId ?: return
+        _items.value = emptyList()
+        viewModelScope.launch {
+            runCatching { repo.deleteAll(uid) }.onFailure { refresh() }
+        }
+    }
 }

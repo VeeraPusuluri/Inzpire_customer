@@ -1,6 +1,8 @@
 package com.inzpire.customer.ui.navigation
 
 import android.widget.Toast
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,7 +28,6 @@ import com.inzpire.customer.ui.offers.OffersScreen
 import com.inzpire.customer.ui.payments.PaymentsScreen
 import com.inzpire.customer.ui.profile.ProfileScreen
 import com.inzpire.customer.ui.shell.CustomerScaffold
-import com.inzpire.customer.ui.splash.SplashScreen
 import io.github.jan.supabase.auth.status.SessionStatus
 
 @Composable
@@ -34,7 +35,8 @@ fun CustomerApp(customerViewModel: CustomerViewModel) {
     val sessionStatus by customerViewModel.sessionStatus.collectAsState()
 
     when (sessionStatus) {
-        is SessionStatus.Initializing -> SplashScreen()
+        // While the Supabase session resolves (brief), show a plain background — no splash.
+        is SessionStatus.Initializing -> Box(Modifier.fillMaxSize())
         is SessionStatus.NotAuthenticated, is SessionStatus.RefreshFailure ->
             AuthScreen(onAuthenticated = { customerViewModel.onSignedIn() })
         is SessionStatus.Authenticated -> AuthenticatedApp(customerViewModel)
@@ -61,9 +63,7 @@ private fun AuthenticatedApp(customerViewModel: CustomerViewModel) {
 
     CustomerScaffold(
         currentRoute = currentRoute,
-        profile = profile,
         onNavigate = { route -> navigateToTab(navController, route) },
-        onSignOut = { customerViewModel.signOut() },
     ) { paddingModifier ->
         NavHost(
             navController = navController,

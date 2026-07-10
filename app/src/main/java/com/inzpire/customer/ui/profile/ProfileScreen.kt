@@ -2,6 +2,7 @@
 
 package com.inzpire.customer.ui.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,6 +19,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Badge
@@ -39,6 +41,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.SnackbarHost
@@ -94,6 +97,7 @@ fun ProfileScreen(customerViewModel: CustomerViewModel) {
 
     var saving by remember { mutableStateOf(false) }
     var showPhoneDialog by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -192,6 +196,18 @@ fun ProfileScreen(customerViewModel: CustomerViewModel) {
                     Text("Save changes", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                 }
             }
+
+            // Log out — moved here from the (now removed) top bar.
+            OutlinedButton(
+                onClick = { showLogoutConfirm = true },
+                shape = RoundedCornerShape(14.dp),
+                border = BorderStroke(1.dp, Destructive.copy(alpha = 0.5f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Destructive),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(20.dp))
+                Text("  Log out", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            }
         }
 
         if (showPhoneDialog) {
@@ -204,6 +220,23 @@ fun ProfileScreen(customerViewModel: CustomerViewModel) {
                 },
                 onSendOtp = { p, cb -> customerViewModel.sendPhoneOtp(p, cb) },
                 onVerify = { p, t, cb -> customerViewModel.verifyPhoneOtp(p, t, cb) },
+            )
+        }
+
+        if (showLogoutConfirm) {
+            AlertDialog(
+                onDismissRequest = { showLogoutConfirm = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showLogoutConfirm = false
+                        customerViewModel.signOut()
+                    }) { Text("Log out", color = Destructive, fontWeight = FontWeight.SemiBold) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showLogoutConfirm = false }) { Text("Cancel", color = MutedForeground) }
+                },
+                title = { Text("Log out?") },
+                text = { Text("You'll need to sign in again to access your project.") },
             )
         }
 

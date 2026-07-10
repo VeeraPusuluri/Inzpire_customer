@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
@@ -40,6 +41,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.inzpire.customer.data.model.NotificationDto
 import com.inzpire.customer.ui.theme.Background
 import com.inzpire.customer.ui.theme.Border
+import com.inzpire.customer.ui.theme.Destructive
 import com.inzpire.customer.ui.theme.Foreground
 import com.inzpire.customer.ui.theme.MutedForeground
 import com.inzpire.customer.ui.theme.Navy
@@ -77,7 +79,12 @@ fun NotificationBell(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text("Notifications", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                if (unread > 0) TextButton(onClick = { vm.markAllRead() }) { Text("Mark all read") }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (unread > 0) TextButton(onClick = { vm.markAllRead() }) { Text("Mark all read") }
+                    if (items.isNotEmpty()) {
+                        TextButton(onClick = { vm.clearAll() }) { Text("Clear all", color = Destructive) }
+                    }
+                }
             }
             if (items.isEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
@@ -86,7 +93,7 @@ fun NotificationBell(
             } else {
                 LazyColumn(Modifier.heightIn(max = 480.dp).padding(bottom = 24.dp)) {
                     items(items, key = { it.id }) { n ->
-                        NotificationRow(n) { vm.markRead(n.id) }
+                        NotificationRow(n, onClick = { vm.markRead(n.id) }, onDelete = { vm.delete(n.id) })
                     }
                 }
             }
@@ -95,12 +102,12 @@ fun NotificationBell(
 }
 
 @Composable
-private fun NotificationRow(n: NotificationDto, onClick: () -> Unit) {
+private fun NotificationRow(n: NotificationDto, onClick: () -> Unit, onDelete: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(start = 20.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Box(
@@ -114,6 +121,9 @@ private fun NotificationRow(n: NotificationDto, onClick: () -> Unit) {
             Text(n.body, color = MutedForeground, fontSize = 13.sp, lineHeight = 18.sp)
         }
         Text(relativeTime(n.createdAt), color = MutedForeground, fontSize = 11.sp)
+        IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
+            Icon(Icons.Outlined.Close, contentDescription = "Delete", tint = MutedForeground, modifier = Modifier.size(16.dp))
+        }
     }
 }
 

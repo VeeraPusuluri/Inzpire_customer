@@ -4,7 +4,5 @@
         <item name="android:windowBackground">@color/inzpire_navy_deep</item>
         <item name="android:statusBarColor">@color/inzpire_navy_deep</item>
         <item name="android:navigationBarColor">@color/inzpire_navy_deep</item>
-        <item name="android:windowSplashScreenBackground">@color/inzpire_navy_deep</item>
-        <item name="android:windowSplashScreenIconBackgroundColor">@color/inzpire_navy_deep</item>
     </style>
 </resources>

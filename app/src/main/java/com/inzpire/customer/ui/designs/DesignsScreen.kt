@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inzpire.customer.data.CockpitData
 import com.inzpire.customer.data.CockpitData.ReviewStatus
+import com.inzpire.customer.data.FallbackImages
 import com.inzpire.customer.ui.components.EmptyState
 import com.inzpire.customer.ui.components.RemoteImage
 import com.inzpire.customer.ui.components.SurfaceCard
@@ -85,7 +86,7 @@ fun DesignsScreen(
             SurfaceCard(Modifier.fillMaxWidth(), onClick = { detail = d }) {
                 Column {
                     Box {
-                        RemoteImage(d.imageUrl, d.title, Modifier.fillMaxWidth().height(190.dp), ContentScale.Crop)
+                        RemoteImage(d.imageUrl.ifBlank { FallbackImages.forDesign(d.id) }, d.title, Modifier.fillMaxWidth().height(190.dp), ContentScale.Crop)
                         Box(
                             Modifier.align(Alignment.TopStart).padding(8.dp)
                                 .clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f))
@@ -168,18 +169,17 @@ private fun DesignDetailDialog(
                 modifier = Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                if (design.imageUrl.isNotBlank()) {
-                    RemoteImage(
-                        design.imageUrl,
-                        design.title,
-                        Modifier
-                            .fillMaxWidth()
-                            .height(210.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable { uriHandler.openUri(design.imageUrl) },
-                        ContentScale.Crop,
-                    )
-                }
+                val heroUrl = design.imageUrl.ifBlank { FallbackImages.forDesign(design.id) }
+                RemoteImage(
+                    heroUrl,
+                    design.title,
+                    Modifier
+                        .fillMaxWidth()
+                        .height(210.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { uriHandler.openUri(heroUrl) },
+                    ContentScale.Crop,
+                )
                 Text("${design.room.uppercase()} · ${design.type.label} · ${design.version}", color = MutedForeground, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 ReviewStatusRow(design.status)
 
