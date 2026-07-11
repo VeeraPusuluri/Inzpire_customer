@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,10 +32,19 @@ import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PostAdd
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.filled.Savings
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,11 +53,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inzpire.customer.data.Cockpit
 import com.inzpire.customer.data.CockpitData
 import com.inzpire.customer.data.CockpitData.MilestoneStatus
+import com.inzpire.customer.data.FallbackImages
 import com.inzpire.customer.data.formatINRCompact
 import com.inzpire.customer.ui.components.BrandGradientBox
 import com.inzpire.customer.ui.components.ProgressBar
@@ -75,20 +88,35 @@ private val dMMMyyyy: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyy
 fun HomeScreen(
     cockpit: Cockpit,
     customerName: String?,
+    loaded: Boolean = true,
+    onOpenLink: (String) -> Unit = {},
+    cockpits: List<Cockpit> = emptyList(),
+    selectedProjectIndex: Int = 0,
+    onSelectProject: (Int) -> Unit = {},
     onOpenApprovals: () -> Unit,
     onOpenDesigns: () -> Unit,
     onOpenMaterials: () -> Unit,
     onOpenPayments: () -> Unit,
+    onOpenPayouts: () -> Unit,
     onOpenDocuments: () -> Unit,
     onOpenChat: () -> Unit,
     onOpenOffers: () -> Unit,
     onOpenEnquiry: () -> Unit,
 ) {
     val project = cockpit.project
-    val dl = CockpitData.daysLineFor(project, LocalDate.now())
     val paid = cockpit.payments.filter { it.status == CockpitData.PaymentStatus.PAID }.sumOf { it.amount }
     val pendingApprovals = cockpit.approvals.count { it.status == CockpitData.ReviewStatus.PENDING }
     val firstName = (customerName ?: CockpitData.customer.name).substringBefore(' ')
+    var showAllProjects by remember { mutableStateOf(false) }
+    // When live we have the full project list; otherwise fall back to the single (seed) cockpit.
+    val projects = if (cockpits.isNotEmpty()) cockpits else listOf(cockpit)
+
+    // Until the first cockpit fetch completes, show the greeting + a spinner instead of the
+    // seed fallback — otherwise the demo project flashes before the real projects load.
+    if (!loaded) {
+        HomeLoading(firstName = firstName, onOpenLink = onOpenLink)
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -104,76 +132,26 @@ fun HomeScreen(
                 Text("Hi $firstName", color = MutedForeground, fontSize = 13.sp)
                 Text("Your project, all in one place", color = Navy, fontSize = 24.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
             }
-            NotificationBell()
-        }
+            NotificationBell(onNavigate = onOpenLink)
+}
 
-        // Project header card
-        SurfaceCard {
-            Column {
-                BrandGradientBox(modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.padding(20.dp)) {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                            Column(Modifier.weight(1f)) {
-                                Text(project.code, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("${project.title} — ${customerName ?: CockpitData.customer.name}", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 2.dp))
-                                Text(
-                                    listOfNotNull(project.segment, project.location.ifBlank { null }).joinToString(" · "),
-                                    color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp),
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .clip(RoundedCornerShape(50))
-                                    .background(Gold)
-                                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                            ) {
-                                Text("Stage ${project.currentStage} / 6", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                            }
-                        }
+        // Project header — a swipeable pager with dots when there are multiple projects.
+        ProjectHeaderSection(
+            projects = projects,
+            customerName = customerName,
+            selectedProjectIndex = selectedProjectIndex,
+            onSelectProject = onSelectProject,
+            onViewAll = { showAllProjects = true },
+            onOpenChat = onOpenChat,
+        )
 
-                        // Days line
-                        Row(
-                            Modifier.fillMaxWidth().padding(top = 16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Bottom,
-                        ) {
-                            Column {
-                                Text("Day ${dl.elapsed}", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 32.sp)
-                                Text("of ${dl.total} days", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(
-                                    if (dl.overdue) "Overdue" else "${dl.remaining} days left",
-                                    color = if (dl.overdue) Color(0xFFFF9AA0) else Color.White,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold,
-                                )
-                                Text(
-                                    "${project.startDate.format(dMMM)} → ${project.targetHandoverDate.format(dMMM)}",
-                                    color = Color.White.copy(alpha = 0.85f),
-                                    fontSize = 11.sp,
-                                )
-                            }
-                        }
-                        ProgressBar(
-                            fraction = dl.pct,
-                            modifier = Modifier.padding(top = 8.dp),
-                            fillColor = if (dl.overdue) Destructive else Gold,
-                        )
-                    }
-                }
-
-                // Team
-                if (cockpit.team.isNotEmpty()) {
-                    Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        cockpit.team.take(2).forEach { person ->
-                            TeamCard(person, onOpenChat, Modifier.weight(1f))
-                        }
-                        if (cockpit.team.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-                    }
-                }
-            }
+        if (showAllProjects) {
+            ProjectPickerDialog(
+                projects = projects,
+                selectedIndex = selectedProjectIndex,
+                onSelect = { onSelectProject(it); showAllProjects = false },
+                onDismiss = { showAllProjects = false },
+            )
         }
 
         // Milestone tracker
@@ -209,6 +187,10 @@ fun HomeScreen(
                     QuickTile(Icons.Filled.LocalOffer, "Offers", "Live promos", false, onOpenOffers, Modifier.weight(1f))
                     QuickTile(Icons.Filled.PostAdd, "New enquiry", "Start a project", false, onOpenEnquiry, Modifier.weight(1f))
                 }
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    QuickTile(Icons.Filled.Savings, "Payouts", "Bonuses & refunds", false, onOpenPayouts, Modifier.weight(1f))
+                    androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                }
             }
         }
 
@@ -220,9 +202,7 @@ fun HomeScreen(
                     cockpit.siteUpdates.forEach { u ->
                         SurfaceCard(Modifier.fillMaxWidth()) {
                             Column {
-                                if (u.imageUrl.isNotBlank()) {
-                                    RemoteImage(u.imageUrl, u.note, Modifier.fillMaxWidth().height(160.dp), ContentScale.Crop)
-                                }
+                                RemoteImage(u.imageUrl.ifBlank { FallbackImages.forSiteUpdate(u.id) }, u.note, Modifier.fillMaxWidth().height(160.dp), ContentScale.Crop)
                                 Column(Modifier.padding(12.dp)) {
                                     Text(u.note, color = Foreground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                     Text(
@@ -237,6 +217,194 @@ fun HomeScreen(
             }
         }
     }
+}
+
+/** Placeholder shown while the customer's real projects are still loading. */
+@Composable
+private fun HomeLoading(firstName: String, onOpenLink: (String) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f)) {
+                Text("Hi $firstName", color = MutedForeground, fontSize = 13.sp)
+                Text("Your project, all in one place", color = Navy, fontSize = 24.sp, fontWeight = FontWeight.Bold, lineHeight = 30.sp)
+            }
+            NotificationBell(onNavigate = onOpenLink)
+        }
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Sky)
+        }
+    }
+}
+
+@Composable
+private fun ProjectHeaderSection(
+    projects: List<Cockpit>,
+    customerName: String?,
+    selectedProjectIndex: Int,
+    onSelectProject: (Int) -> Unit,
+    onViewAll: () -> Unit,
+    onOpenChat: () -> Unit,
+) {
+    if (projects.size <= 1) {
+        ProjectHeaderCard(projects.first(), customerName, onOpenChat)
+        return
+    }
+    val startPage = selectedProjectIndex.coerceIn(0, projects.lastIndex)
+    val pagerState = rememberPagerState(initialPage = startPage) { projects.size }
+    // Swiping the pager selects that project (re-drives the rest of home + every tab).
+    LaunchedEffect(pagerState.currentPage) { onSelectProject(pagerState.currentPage) }
+    // Selecting from "View all" scrolls the pager to match.
+    LaunchedEffect(selectedProjectIndex) {
+        if (selectedProjectIndex in projects.indices && selectedProjectIndex != pagerState.currentPage) {
+            pagerState.animateScrollToPage(selectedProjectIndex)
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Your projects · ${projects.size}", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                "View all",
+                color = Sky,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.clickable(onClick = onViewAll),
+            )
+        }
+        HorizontalPager(state = pagerState, pageSpacing = 12.dp) { page ->
+            ProjectHeaderCard(projects[page], customerName, onOpenChat)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+            repeat(projects.size) { i ->
+                val on = i == pagerState.currentPage
+                Box(
+                    Modifier
+                        .padding(horizontal = 3.dp)
+                        .size(if (on) 8.dp else 6.dp)
+                        .clip(CircleShape)
+                        .background(if (on) Navy else Border),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProjectHeaderCard(cockpit: Cockpit, customerName: String?, onOpenChat: () -> Unit) {
+    val project = cockpit.project
+    val dl = CockpitData.daysLineFor(project, LocalDate.now())
+    SurfaceCard(Modifier.fillMaxWidth()) {
+        Column {
+            BrandGradientBox(modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(20.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(Modifier.weight(1f)) {
+                            Text(project.code, color = Color.White.copy(alpha = 0.8f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "${project.title} — ${customerName ?: CockpitData.customer.name}",
+                                color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 23.sp,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
+                            )
+                            Text(
+                                listOfNotNull(project.segment, project.location.ifBlank { null }).joinToString(" · "),
+                                color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 8.dp)
+                                .clip(RoundedCornerShape(50))
+                                .background(Gold)
+                                .padding(horizontal = 10.dp, vertical = 5.dp),
+                        ) {
+                            Text("Stage ${project.currentStage} / 6", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        Column {
+                            Text("Day ${dl.elapsed}", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 32.sp)
+                            Text("of ${dl.total} days", color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text(
+                                if (dl.overdue) "Overdue" else "${dl.remaining} days left",
+                                color = if (dl.overdue) Color(0xFFFF9AA0) else Color.White,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                            Text(
+                                "${project.startDate.format(dMMM)} → ${project.targetHandoverDate.format(dMMM)}",
+                                color = Color.White.copy(alpha = 0.85f),
+                                fontSize = 11.sp,
+                            )
+                        }
+                    }
+                    ProgressBar(
+                        fraction = dl.pct,
+                        modifier = Modifier.padding(top = 8.dp),
+                        fillColor = if (dl.overdue) Destructive else Gold,
+                    )
+                }
+            }
+
+            if (cockpit.team.isNotEmpty()) {
+                Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    cockpit.team.take(2).forEach { person ->
+                        TeamCard(person, onOpenChat, Modifier.weight(1f))
+                    }
+                    if (cockpit.team.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProjectPickerDialog(
+    projects: List<Cockpit>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close", color = MutedForeground) } },
+        title = { Text("Your projects", color = Navy, fontWeight = FontWeight.SemiBold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                projects.forEachIndexed { i, c ->
+                    val selected = i == selectedIndex
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selected) SkySoft else Color.Transparent)
+                            .clickable { onSelect(i) }
+                            .padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(c.project.code, color = MutedForeground, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                            Text(c.project.title, color = Foreground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        }
+                        Text("Stage ${c.project.currentStage}/6", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+        },
+        containerColor = Color.White,
+    )
 }
 
 @Composable
@@ -296,7 +464,7 @@ private fun MilestoneRow(index: Int, milestone: CockpitData.Milestone) {
                     }
                 }
             }
-            Text(milestone.name, color = Foreground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(milestone.name, color = Foreground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             milestone.date?.let { Text(it.format(dMMMyyyy), color = MutedForeground, fontSize = 11.sp) }
         }
         milestone.thumbnailUrl?.let {
@@ -330,8 +498,8 @@ private fun QuickTile(
                 Icon(icon, contentDescription = null, tint = if (highlight) Color.White else Navy, modifier = Modifier.size(22.dp))
             }
             Column(Modifier.weight(1f)) {
-                Text(title, color = Foreground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(desc, color = MutedForeground, fontSize = 11.sp, maxLines = 1)
+                Text(title, color = Foreground, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(desc, color = MutedForeground, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = MutedForeground, modifier = Modifier.size(18.dp))
         }

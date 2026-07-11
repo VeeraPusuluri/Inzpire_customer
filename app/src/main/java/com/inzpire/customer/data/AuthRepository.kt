@@ -78,7 +78,12 @@ class AuthRepository(private val client: io.github.jan.supabase.SupabaseClient =
     }
 
     suspend fun signUp(email: String, password: String, name: String, phone: String): SignUpOutcome {
-        client.auth.signUpWith(Email) {
+        // Redirect the confirmation link to our own "Email verified" page instead of the
+        // project's default Site URL (a dev leftover, http://127.0.0.1:3000, which showed a
+        // blank page). Passing redirectUrl per-call keeps the global Site URL — used by other
+        // flows like password recovery and the admin web — untouched. The URL must also be on
+        // the project's redirect allow-list or Supabase falls back to the Site URL.
+        client.auth.signUpWith(Email, redirectUrl = EMAIL_VERIFIED_URL) {
             this.email = email
             this.password = password
             this.data = buildJsonObject {
@@ -96,5 +101,11 @@ class AuthRepository(private val client: io.github.jan.supabase.SupabaseClient =
 
     suspend fun signOut() {
         client.auth.signOut()
+    }
+
+    private companion object {
+        /** Branded page the signup confirmation link lands on (the `verified` edge function). */
+        const val EMAIL_VERIFIED_URL =
+            "https://drlggmunipoxxxoeqkje.supabase.co/functions/v1/verified"
     }
 }

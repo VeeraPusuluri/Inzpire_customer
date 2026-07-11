@@ -68,13 +68,28 @@ class CockpitRepository(
 ) {
 
     /** Returns the customer's most recent project fully mapped, or null if they have none. */
-    suspend fun load(userId: String, customerLocation: String?): Cockpit? {
-        val projectDto = client.postgrest["projects"].select {
-            filter { eq("customer_id", userId) }
-            order("created_at", Order.DESCENDING)
-            limit(1L)
-        }.decodeList<ProjectDto>().firstOrNull() ?: return null
+    suspend fun load(userId: String, customerLocation: String?): Cockpit? =
+        loadAll(userId, customerLocation).firstOrNull()
 
+    /** Every project the customer has, newest first, each fully mapped. Empty if none. */
+    suspend fun loadAll(userId: String, customerLocation: String?): List<Cockpit> {
+        val projects = client.postgrest["projects"].select {
+            filter {
+                eq("customer_id", userId)
+                // Only surface projects the admin has published to the customer.
+                // Drafts (published_to_customer = false) stay hidden until the
+                // team flips the "Published to customer" switch in the admin app.
+                eq("published_to_customer", true)
+            }
+            order("created_at", Order.DESCENDING)
+        }.decodeList<ProjectDto>()
+        if (projects.isEmpty()) return emptyList()
+        return coroutineScope {
+            projects.map { async { loadProject(it, customerLocation) } }.map { it.await() }
+        }
+    }
+
+    private suspend fun loadProject(projectDto: ProjectDto, customerLocation: String?): Cockpit {
         val pid = projectDto.id
 
         return coroutineScope {

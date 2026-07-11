@@ -7,6 +7,7 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.realtime.Realtime
 
 /**
  * Single [io.github.jan.supabase.SupabaseClient], mirroring the web app's `supabase` singleton
@@ -29,6 +30,7 @@ object SupabaseClientProvider {
         ) {
             install(Auth)
             install(Postgrest)
+            install(Realtime)
         }
     }
 

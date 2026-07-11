@@ -93,6 +93,8 @@ fun ProfileScreen(customerViewModel: CustomerViewModel) {
     var upiId by remember(profile) { mutableStateOf(profile?.upiId ?: "") }
     var bankName by remember(profile) { mutableStateOf(profile?.bankAcctName ?: "") }
     var bankNo by remember(profile) { mutableStateOf(profile?.bankAcctNo ?: "") }
+    // Seeded from the saved number so existing users don't have to retype to save.
+    var confirmBankNo by remember(profile) { mutableStateOf(profile?.bankAcctNo ?: "") }
     var bankIfsc by remember(profile) { mutableStateOf(profile?.bankIfsc ?: "") }
 
     var saving by remember { mutableStateOf(false) }
@@ -109,20 +111,31 @@ fun ProfileScreen(customerViewModel: CustomerViewModel) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Identity header
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                if (!profile?.photoUrl.isNullOrBlank()) {
-                    RemoteImage(profile?.photoUrl, profile?.name, Modifier.size(64.dp).clip(CircleShape), ContentScale.Crop)
-                } else {
-                    Box(Modifier.size(64.dp).clip(CircleShape).background(SkySoft), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Person, contentDescription = null, tint = Navy, modifier = Modifier.size(30.dp))
+            // Identity header — carded so it sits consistently with the sections below.
+            ElevatedCard(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.elevatedCardColors(containerColor = Color.White),
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    if (!profile?.photoUrl.isNullOrBlank()) {
+                        RemoteImage(profile?.photoUrl, profile?.name, Modifier.size(64.dp).clip(CircleShape), ContentScale.Crop)
+                    } else {
+                        Box(Modifier.size(64.dp).clip(CircleShape).background(SkySoft), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Person, contentDescription = null, tint = Navy, modifier = Modifier.size(30.dp))
+                        }
                     }
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(profile?.name?.ifBlank { "Your profile" } ?: "Your profile", color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        RolePill((roles.firstOrNull() ?: "customer").replace('_', ' '))
-                        KycPill(profile?.kycStatus)
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(profile?.name?.ifBlank { "Your profile" } ?: "Your profile", color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            RolePill((roles.firstOrNull() ?: "customer").replace('_', ' '))
+                            KycPill(profile?.kycStatus)
+                        }
                     }
                 }
             }
@@ -149,10 +162,10 @@ fun ProfileScreen(customerViewModel: CustomerViewModel) {
 
             // Personal
             SectionCard("Personal") {
-                ProfileField(name, { name = it }, "Name", Icons.Filled.Person)
-                ProfileField(phone, { phone = it }, "Phone", Icons.Filled.Phone, KeyboardType.Phone)
-                ProfileField(location, { location = it }, "City / locality", Icons.Filled.LocationOn)
-                ProfileField(address, { address = it }, "Address", Icons.Outlined.Home, singleLine = false)
+                ProfileField(name, { name = it.take(60) }, "Name", Icons.Filled.Person)
+                ProfileField(phone, { phone = sanitizePhone(it) }, "Phone", Icons.Filled.Phone, KeyboardType.Phone)
+                ProfileField(location, { location = it.take(60) }, "City / locality", Icons.Filled.LocationOn)
+                ProfileField(address, { address = it.take(120) }, "Address", Icons.Outlined.Home, singleLine = false)
             }
 
             // Payouts (missing from the app until now — matches the web profile page)
@@ -160,14 +173,22 @@ fun ProfileScreen(customerViewModel: CustomerViewModel) {
                 title = "Payouts",
                 subtitle = "Used for referral & refund payouts. Money is sent only to the linked account.",
             ) {
-                ProfileField(upiId, { upiId = it }, "UPI ID", Icons.Filled.AccountBalanceWallet, placeholder = "name@upi")
-                ProfileField(bankName, { bankName = it }, "Account holder", Icons.Filled.Badge)
-                ProfileField(bankNo, { bankNo = it }, "Account number", Icons.Filled.Numbers, KeyboardType.Number)
-                ProfileField(bankIfsc, { bankIfsc = it }, "IFSC", Icons.Filled.Pin)
+                ProfileField(upiId, { upiId = sanitizeUpi(it) }, "UPI ID", Icons.Filled.AccountBalanceWallet, KeyboardType.Email, placeholder = "name@upi")
+                ProfileField(bankName, { bankName = it.take(60) }, "Account holder", Icons.Filled.Badge)
+                ProfileField(bankNo, { bankNo = accountDigits(it) }, "Account number", Icons.Filled.Numbers, KeyboardType.Number)
+                ProfileField(confirmBankNo, { confirmBankNo = accountDigits(it) }, "Re-enter account number", Icons.Filled.Numbers, KeyboardType.Number)
+                if (confirmBankNo.isNotBlank() && confirmBankNo != bankNo) {
+                    Text("Account numbers don't match", color = Destructive, fontSize = 12.sp)
+                }
+                ProfileField(bankIfsc, { bankIfsc = sanitizeIfsc(it) }, "IFSC", Icons.Filled.Pin, placeholder = "ABCD0123456")
             }
 
             Button(
-                onClick = {
+                onClick = saveClick@{
+                    if (bankNo.isNotBlank() && confirmBankNo != bankNo) {
+                        scope.launch { snackbarHostState.showSnackbar("Account numbers don't match") }
+                        return@saveClick
+                    }
                     saving = true
                     customerViewModel.updateProfile(
                         ProfilePatch(
@@ -446,3 +467,16 @@ private fun ProfileField(
         modifier = Modifier.fillMaxWidth(),
     )
 }
+
+// ---- input sanitizers: keep each field to a valid character set + sensible max length ----
+/** Digits only, capped at 18 (longest Indian bank account number). */
+private fun accountDigits(input: String): String = input.filter { it.isDigit() }.take(18)
+
+/** Allows a leading + and digits, e.g. +9198XXXXXXXX. */
+private fun sanitizePhone(input: String): String = input.filter { it.isDigit() || it == '+' }.take(15)
+
+/** UPI IDs have no spaces (name@bank); cap length defensively. */
+private fun sanitizeUpi(input: String): String = input.filter { !it.isWhitespace() }.take(50)
+
+/** IFSC is 11 uppercase alphanumerics. */
+private fun sanitizeIfsc(input: String): String = input.uppercase().filter { it.isLetterOrDigit() }.take(11)

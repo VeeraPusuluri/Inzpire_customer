@@ -6,6 +6,7 @@ object CustomerDestinations {
     const val DESIGNS = "designs"
     const val MATERIALS = "materials"
     const val PAYMENTS = "payments"
+    const val PAYOUTS = "payouts"
     const val PROFILE = "profile"
     const val APPROVALS = "approvals"
     const val DOCUMENTS = "documents"

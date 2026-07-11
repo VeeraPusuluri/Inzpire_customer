@@ -13,10 +13,14 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -113,11 +117,13 @@ fun AuthScreen(onAuthenticated: () -> Unit, viewModel: AuthViewModel = viewModel
 
     Column(
         modifier = Modifier
-            .fillMaxWidth()
+            .fillMaxSize()
             .background(Background)
-            .verticalScroll(rememberScrollState())
-            .imePadding()
-            .navigationBarsPadding(),
+            // Pad by whichever is larger — the nav bar (keyboard closed) or the IME
+            // (keyboard open) — OUTSIDE the scroll, so the viewport shrinks when the
+            // keyboard opens and the focused field's bring-into-view lands above it.
+            .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
+            .verticalScroll(rememberScrollState()),
     ) {
         AuthHero(mode = viewModel.mode)
 

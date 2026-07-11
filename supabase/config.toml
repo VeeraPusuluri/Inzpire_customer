@@ -5,3 +5,9 @@ project_id = "drlggmunipoxxxoeqkje"
 # the caller with the x-dispatch-secret header instead (PUSH_DISPATCH_SECRET).
 [functions.send-push]
 verify_jwt = false
+
+# verified serves the "Email verified" page that the signup confirmation link
+# redirects to. It's opened directly by a browser (no Supabase JWT), so JWT
+# verification is off.
+[functions.verified]
+verify_jwt = false

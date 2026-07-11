@@ -8,18 +8,27 @@ import com.inzpire.customer.data.ChatRepository
 import com.inzpire.customer.data.Cockpit
 import com.inzpire.customer.data.CockpitData
 import com.inzpire.customer.data.CockpitRepository
+import com.inzpire.customer.data.PayoutRepository
 import com.inzpire.customer.data.ProfileRepository
+import com.inzpire.customer.data.SupabaseClientProvider
 import com.inzpire.customer.data.model.ChangeRequestInsert
+import com.inzpire.customer.data.model.PayoutRow
 import com.inzpire.customer.data.model.Profile
 import com.inzpire.customer.data.model.ProfilePatch
+import com.inzpire.customer.data.model.ReferralBonusRow
 import com.inzpire.customer.notifications.PushRegistrar
 import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.realtime.PostgresAction
+import io.github.jan.supabase.realtime.channel
+import io.github.jan.supabase.realtime.postgresChangeFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -46,6 +55,7 @@ class CustomerViewModel : ViewModel() {
     private val profileRepository = ProfileRepository()
     private val cockpitRepository = CockpitRepository()
     private val chatRepository = ChatRepository()
+    private val payoutRepository = PayoutRepository()
 
     val sessionStatus: StateFlow<SessionStatus> = authRepository.sessionStatus
 
@@ -65,9 +75,17 @@ class CustomerViewModel : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    /** The cockpit shown by the screens — seed until the first live load resolves. */
+    /** The cockpit shown by the screens — the selected project, seed until first load. */
     private val _cockpit = MutableStateFlow(Cockpit.seed)
     val cockpit: StateFlow<Cockpit> = _cockpit.asStateFlow()
+
+    /** All of the customer's projects (for the home pager); empty until loaded. */
+    private val _cockpits = MutableStateFlow<List<Cockpit>>(emptyList())
+    val cockpits: StateFlow<List<Cockpit>> = _cockpits.asStateFlow()
+
+    /** Index of the active project within [cockpits]. */
+    private val _selectedProjectIndex = MutableStateFlow(0)
+    val selectedProjectIndex: StateFlow<Int> = _selectedProjectIndex.asStateFlow()
 
     /** True once a real project has been loaded from Supabase (vs. the seed fallback). */
     private val _live = MutableStateFlow(false)
@@ -76,8 +94,25 @@ class CustomerViewModel : ViewModel() {
     private val _cockpitLoading = MutableStateFlow(false)
     val cockpitLoading: StateFlow<Boolean> = _cockpitLoading.asStateFlow()
 
+    /**
+     * False until the first cockpit fetch after sign-in completes. Home shows a loading
+     * placeholder while false so the seed fallback never flashes before real data arrives.
+     */
+    private val _cockpitLoaded = MutableStateFlow(false)
+    val cockpitLoaded: StateFlow<Boolean> = _cockpitLoaded.asStateFlow()
+
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
+
+    // ---- payouts (money owed to the customer: referral bonuses, commissions, refunds) ----
+    private val _payouts = MutableStateFlow<List<PayoutRow>>(emptyList())
+    val payouts: StateFlow<List<PayoutRow>> = _payouts.asStateFlow()
+
+    private val _pendingBonuses = MutableStateFlow<List<ReferralBonusRow>>(emptyList())
+    val pendingBonuses: StateFlow<List<ReferralBonusRow>> = _pendingBonuses.asStateFlow()
+
+    private val _payoutsLoading = MutableStateFlow(false)
+    val payoutsLoading: StateFlow<Boolean> = _payoutsLoading.asStateFlow()
 
     /** One-shot user-feedback messages (shown as a toast by the UI). */
     private val _toasts = MutableSharedFlow<String>(extraBufferCapacity = 4)
@@ -108,9 +143,25 @@ class CustomerViewModel : ViewModel() {
         _profile.value = null
         _roles.value = emptyList()
         _cockpit.value = Cockpit.seed
+        _cockpits.value = emptyList()
+        _selectedProjectIndex.value = 0
         _live.value = false
+        _cockpitLoaded.value = false
         _messages.value = emptyList()
+        _payouts.value = emptyList()
+        _pendingBonuses.value = emptyList()
         _identity.value = null
+    }
+
+    /** Loads the customer's payouts + not-yet-released referral bonuses (called when the screen opens). */
+    fun loadPayouts() {
+        val userId = currentUserId ?: return
+        viewModelScope.launch {
+            _payoutsLoading.value = true
+            runCatching { payoutRepository.listPayouts(userId) }.onSuccess { _payouts.value = it }
+            runCatching { payoutRepository.listPendingReferralBonuses(userId) }.onSuccess { _pendingBonuses.value = it }
+            _payoutsLoading.value = false
+        }
     }
 
     fun refreshAll() {
@@ -135,16 +186,30 @@ class CustomerViewModel : ViewModel() {
         viewModelScope.launch {
             _cockpitLoading.value = true
             runCatching {
-                cockpitRepository.load(userId, _profile.value?.location)
+                cockpitRepository.loadAll(userId, _profile.value?.location)
             }.onSuccess { loaded ->
-                if (loaded != null) {
-                    _cockpit.value = loaded
+                if (loaded.isNotEmpty()) {
+                    _cockpits.value = loaded
+                    val idx = _selectedProjectIndex.value.coerceIn(0, loaded.lastIndex)
+                    _selectedProjectIndex.value = idx
+                    _cockpit.value = loaded[idx]
                     _live.value = true
                     loadMessages()
+                    startRealtimeMessages()
                 }
             }
             _cockpitLoading.value = false
+            _cockpitLoaded.value = true
         }
+    }
+
+    /** Switch the active project — re-drives the home page and every tab. */
+    fun selectProject(index: Int) {
+        val list = _cockpits.value
+        if (index !in list.indices || index == _selectedProjectIndex.value) return
+        _selectedProjectIndex.value = index
+        _cockpit.value = list[index]
+        loadMessages()
     }
 
     // ---- cockpit write actions (optimistic; persisted when live) ----
@@ -267,6 +332,24 @@ class CustomerViewModel : ViewModel() {
     }
 
     // ---- chat ----
+
+    private var realtimeStarted = false
+
+    /**
+     * Subscribe once (for the ViewModel's lifetime) to inserts on public.messages so an
+     * admin's new message shows up live in the open chat. The event is only used as a
+     * "something changed" trigger — we re-fetch the selected project's messages (RLS-scoped)
+     * via [loadMessages], so switching the active project needs no re-subscribe.
+     */
+    private fun startRealtimeMessages() {
+        if (realtimeStarted) return
+        realtimeStarted = true
+        val channel = SupabaseClientProvider.client.channel("customer-messages")
+        channel.postgresChangeFlow<PostgresAction.Insert>(schema = "public") {
+            table = "messages"
+        }.onEach { if (_live.value) loadMessages() }.launchIn(viewModelScope)
+        viewModelScope.launch { runCatching { channel.subscribe() } }
+    }
 
     fun loadMessages() {
         if (!_live.value) return

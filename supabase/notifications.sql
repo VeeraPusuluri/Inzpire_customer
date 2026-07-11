@@ -12,7 +12,7 @@
 --      (fill this in once; see NOTIFICATIONS_SETUP.md).
 --   4. notify_users() — inserts N notification rows (SECURITY DEFINER, bypasses RLS).
 --   5. Per-event triggers that call notify_users():
---        · leads INSERT (referral)            → admins            [in-app]
+--        · leads INSERT (enquiry / referral)  → admins            [push/in-app]
 --        · referral_events INSERT             → admins            [in-app]
 --        · referral_events approved/go_live   → influencer        [push]
 --        · team_assignments INSERT            → customer          [push]
@@ -43,6 +43,18 @@ begin
     where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'notifications'
   ) then
     alter publication supabase_realtime add table public.notifications;
+  end if;
+end $$;
+
+-- Chat streams public.messages over realtime so the customer app receives an
+-- admin's new message live (idempotent add to the publication).
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'messages'
+  ) then
+    alter publication supabase_realtime add table public.messages;
   end if;
 end $$;
 
@@ -124,10 +136,15 @@ create or replace function public.notify_users(
   _channel    public.notification_channel default 'push'
 ) returns void
 language plpgsql security definer set search_path = public as $$
-declare uid uuid;
+declare uid uuid; recips uuid[];
 begin
-  foreach uid in array coalesce(_recipients, '{}') loop
-    if uid is null then continue; end if;
+  -- Dedupe + drop nulls so a user holding more than one role on a project
+  -- (e.g. the same person as manager AND designer) gets exactly one
+  -- notification, not one per role.
+  select coalesce(array_agg(distinct r), '{}'::uuid[]) into recips
+  from unnest(coalesce(_recipients, '{}'::uuid[])) as r
+  where r is not null;
+  foreach uid in array recips loop
     insert into public.notifications (user_id, channel, type, title, body, link, data)
     values (uid, _channel, _type, _title, _body, _link, _data);
   end loop;
@@ -162,6 +179,17 @@ begin
       coalesce(nullif(new.requirement, ''), 'A new referral lead was submitted'),
       '/admin/leads/' || new.id,
       jsonb_build_object('lead_id', new.id, 'influencer_id', new.influencer_id),
+      'push'
+    );
+  else
+    -- Direct customer enquiry (e.g. submitted from the customer app home page) -> admins.
+    perform public.notify_users(
+      public.admin_user_ids(),
+      'enquiry',
+      'New customer enquiry',
+      coalesce(nullif(new.requirement, ''), 'A customer submitted a new enquiry'),
+      '/admin/leads/' || new.id,
+      jsonb_build_object('lead_id', new.id, 'customer_id', new.customer_id, 'source', new.source::text),
       'push'
     );
   end if;

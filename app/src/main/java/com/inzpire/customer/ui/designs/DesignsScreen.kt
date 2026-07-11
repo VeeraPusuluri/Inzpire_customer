@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -40,6 +42,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.inzpire.customer.data.CockpitData
@@ -82,42 +85,14 @@ fun DesignsScreen(
             EmptyState("No designs yet", "Your designer will publish moodboards and renders here.")
         }
 
-        designs.forEach { d ->
-            SurfaceCard(Modifier.fillMaxWidth(), onClick = { detail = d }) {
-                Column {
-                    Box {
-                        RemoteImage(d.imageUrl.ifBlank { FallbackImages.forDesign(d.id) }, d.title, Modifier.fillMaxWidth().height(190.dp), ContentScale.Crop)
-                        Box(
-                            Modifier.align(Alignment.TopStart).padding(8.dp)
-                                .clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.6f))
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
-                        ) { Text(d.type.label, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) }
-                        Box(
-                            Modifier.align(Alignment.TopEnd).padding(8.dp)
-                                .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.95f))
-                                .padding(horizontal = 8.dp, vertical = 3.dp),
-                        ) { Text(d.version, color = Navy, fontSize = 10.sp, fontWeight = FontWeight.SemiBold) }
-                    }
-                    Column(Modifier.padding(12.dp)) {
-                        Text(d.room.uppercase(), color = MutedForeground, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                        Text(d.title, color = Foreground, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                        ReviewStatusRow(d.status, Modifier.padding(top = 4.dp))
-
-                        if (d.status == ReviewStatus.PENDING) {
-                            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = { onApprove(d.id) },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Success, contentColor = Color.White),
-                                ) { Text("Approve", fontSize = 14.sp) }
-                                OutlinedButton(onClick = { requestFor = d }, modifier = Modifier.weight(1f)) {
-                                    Icon(Icons.Filled.ChatBubbleOutline, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Text(" Request change", fontSize = 13.sp)
-                                }
-                            }
-                        }
-                    }
+        // Two-per-row gallery grid — compact thumbnails instead of full-width cards.
+        // Tap a card to open its detail sheet, where Approve / Request-change live.
+        designs.chunked(2).forEach { rowItems ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                rowItems.forEach { d ->
+                    DesignCard(d, Modifier.weight(1f)) { detail = d }
                 }
+                if (rowItems.size == 1) Spacer(Modifier.weight(1f))
             }
         }
     }
@@ -146,6 +121,43 @@ fun DesignsScreen(
                 requestFor = null
             },
         )
+    }
+}
+
+@Composable
+private fun DesignCard(design: CockpitData.Design, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    SurfaceCard(modifier, onClick = onClick) {
+        Column {
+            Box {
+                RemoteImage(
+                    design.imageUrl.ifBlank { FallbackImages.forDesign(design.id) },
+                    design.title,
+                    Modifier.fillMaxWidth().aspectRatio(1.1f),
+                    ContentScale.Crop,
+                )
+                Box(
+                    Modifier.align(Alignment.TopStart).padding(6.dp)
+                        .clip(RoundedCornerShape(50)).background(Color.Black.copy(alpha = 0.55f))
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                ) { Text(design.type.label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.SemiBold) }
+                Box(
+                    Modifier.align(Alignment.TopEnd).padding(6.dp)
+                        .clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.95f))
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                ) { Text(design.version, color = Navy, fontSize = 9.sp, fontWeight = FontWeight.SemiBold) }
+            }
+            Column(Modifier.padding(10.dp)) {
+                Text(
+                    design.room.uppercase(), color = MutedForeground, fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    design.title, color = Foreground, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 1.dp),
+                )
+                ReviewStatusRow(design.status, Modifier.padding(top = 6.dp))
+            }
+        }
     }
 }
 

@@ -23,6 +23,7 @@ data class ProjectDto(
     @SerialName("target_handover_date") val targetHandoverDate: String? = null,
     @SerialName("manager_id") val managerId: String? = null,
     @SerialName("designer_id") val designerId: String? = null,
+    @SerialName("published_to_customer") val publishedToCustomer: Boolean = true,
 )
 
 @Serializable

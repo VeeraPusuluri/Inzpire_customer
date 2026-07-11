@@ -23,6 +23,14 @@ object FallbackImages {
         "https://images.unsplash.com/photo-1503387837-b154d5074bd2?w=900$PARAMS",
     )
 
+    // Site / progress photos — used for site-update cards on the home page.
+    private val siteUpdates = listOf(
+        "https://images.unsplash.com/photo-1503387837-b154d5074bd2?w=800$PARAMS",
+        "https://images.unsplash.com/photo-1556909114-44e3e9399a2f?w=800$PARAMS",
+        "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800$PARAMS",
+        "https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?w=800$PARAMS",
+    )
+
     // Material / finish swatches — used for material cards.
     private val materials = listOf(
         "https://images.unsplash.com/photo-1604147706283-d7119b5b822c?w=400$PARAMS",
@@ -38,6 +46,9 @@ object FallbackImages {
 
     /** A stable "nice" image for a material card with no admin-uploaded swatch. */
     fun forMaterial(seed: String): String = materials[pick(seed, materials.size)]
+
+    /** A stable "nice" image for a site-update card with no admin-uploaded photo. */
+    fun forSiteUpdate(seed: String): String = siteUpdates[pick(seed, siteUpdates.size)]
 
     private fun pick(seed: String, size: Int): Int = ((seed.hashCode() % size) + size) % size
 }

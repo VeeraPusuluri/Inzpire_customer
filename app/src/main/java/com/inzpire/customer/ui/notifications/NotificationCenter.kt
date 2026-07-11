@@ -58,6 +58,7 @@ import java.time.OffsetDateTime
 @Composable
 fun NotificationBell(
     tint: androidx.compose.ui.graphics.Color = Navy,
+    onNavigate: (String) -> Unit = {},
     vm: NotificationsViewModel = viewModel(),
 ) {
     val items by vm.items.collectAsState()
@@ -93,7 +94,18 @@ fun NotificationBell(
             } else {
                 LazyColumn(Modifier.heightIn(max = 480.dp).padding(bottom = 24.dp)) {
                     items(items, key = { it.id }) { n ->
-                        NotificationRow(n, onClick = { vm.markRead(n.id) }, onDelete = { vm.delete(n.id) })
+                        NotificationRow(
+                            n,
+                            onClick = {
+                                vm.markRead(n.id)
+                                val link = n.link
+                                if (!link.isNullOrBlank()) {
+                                    open = false
+                                    onNavigate(link)
+                                }
+                            },
+                            onDelete = { vm.delete(n.id) },
+                        )
                     }
                 }
             }
