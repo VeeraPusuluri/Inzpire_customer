@@ -24,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +45,7 @@ private val dMMMyyyy: DateTimeFormatter = DateTimeFormatter.ofPattern("d MMM yyy
 
 @Composable
 fun DocumentsScreen(documents: List<CockpitData.Document>, onBack: () -> Unit) {
+    val uriHandler = LocalUriHandler.current
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -68,7 +70,14 @@ fun DocumentsScreen(documents: List<CockpitData.Document>, onBack: () -> Unit) {
                 Column {
                     documents.forEachIndexed { i, d ->
                         if (i > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(Border))
-                        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .then(if (d.url.isNotBlank()) Modifier.clickable { uriHandler.openUri(d.url) } else Modifier)
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
                             Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(SkySoft), contentAlignment = Alignment.Center) {
                                 Icon(Icons.Filled.Description, contentDescription = null, tint = Navy, modifier = Modifier.size(20.dp))
                             }

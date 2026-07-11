@@ -97,7 +97,7 @@ object CockpitData {
         val imageUrl: String,
     )
 
-    data class Document(val id: String, val name: String, val type: String, val date: LocalDate)
+    data class Document(val id: String, val name: String, val type: String, val date: LocalDate, val url: String = "")
 
     val customer = Person(
         id = "cust_001",

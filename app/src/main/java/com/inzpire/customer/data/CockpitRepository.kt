@@ -335,6 +335,7 @@ class CockpitRepository(
         name = d.name,
         type = d.docType ?: "File",
         date = parseDbDate(d.createdAt) ?: LocalDate.now(),
+        url = d.fileUrl ?: "",
     )
 
     private fun milestonesForStage(stage: Int): List<CockpitData.Milestone> {
